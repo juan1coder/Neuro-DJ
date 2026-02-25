@@ -41,10 +41,26 @@ export interface FreestyleConfig {
 
 export type GenerationParams = 
     | { mode: 'Guided'; config: MusicConfig }
-    | { mode: 'Freestyle'; config: FreestyleConfig };
+    | { mode: 'Freestyle'; config: FreestyleConfig }
+    | { mode: 'Chat'; config: { chatHistory: string } };
 
 
 export interface GeneratedContent {
     musicDescription: string;
     imagePrompt: string;
+}
+
+export interface SavedSession {
+  id: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  carrierFreq: number;
+  beatFreq: number;
+  date: string;
+}
+
+declare module '*.ogg' {
+  const src: string;
+  export default src;
 }

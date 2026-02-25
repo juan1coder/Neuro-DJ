@@ -6,13 +6,14 @@ import { Slider } from './Slider';
 import { Toggle } from './Toggle';
 import { SegmentedControl } from './SegmentedControl';
 import { Loader } from './Loader';
+import { ChatPrescription } from './ChatPrescription';
 
 interface ControlsProps {
   onGenerate: (params: GenerationParams) => void;
   isLoading: boolean;
 }
 
-type InputMode = 'Guided' | 'Freestyle';
+type InputMode = 'Guided' | 'Freestyle' | 'Chat';
 
 const neuroIntentOptions = [
   { value: NeuroIntent.Dopamine, label: 'Dopamine' },
@@ -73,25 +74,29 @@ export const Controls: React.FC<ControlsProps> = ({ onGenerate, isLoading }) => 
   };
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm border border-blue-400/20 rounded-lg p-6 space-y-6 shadow-2xl shadow-blue-900/20">
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">Input Mode</label>
+    <div className="bg-[#282a36]/80 backdrop-blur-md border border-[#bd93f9]/20 rounded-2xl p-6 space-y-8 shadow-2xl shadow-[#bd93f9]/10">
+      <div className="bg-[#44475a]/30 p-5 rounded-xl border border-[#6272a4]/20">
+        <label className="block text-sm font-medium text-[#f8f8f2] mb-3 font-display tracking-wide">Input Mode</label>
         <SegmentedControl 
-          options={[{value: 'Guided', label: 'Guided'}, {value: 'Freestyle', label: 'Freestyle'}]}
+          options={[
+            {value: 'Guided', label: 'Guided'}, 
+            {value: 'Freestyle', label: 'Freestyle'},
+            {value: 'Chat', label: 'AI Chat'}
+          ]}
           value={inputMode} 
           onChange={(val) => setInputMode(val as InputMode)} 
         />
       </div>
 
       {inputMode === 'Guided' ? (
-        <>
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-cyan-300">Genre Base</h3>
+        <div className="space-y-6">
+          <div className="bg-[#44475a]/30 p-5 rounded-xl border border-[#6272a4]/20 space-y-4">
+            <h3 className="text-xl font-semibold text-[#50fa7b] font-display tracking-wide">Genre Base</h3>
             <SegmentedControl options={genreOptions.map(g => ({ value: g, label: g }))} value={genre} onChange={(val) => setGenre(val as Genre)} />
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-cyan-300">Tuning</h3>
+          <div className="bg-[#44475a]/30 p-5 rounded-xl border border-[#6272a4]/20 space-y-6">
+            <h3 className="text-xl font-semibold text-[#50fa7b] font-display tracking-wide">Tuning</h3>
             <Slider
               label={`Energy: ${energy} (${getEnergyLabel(energy)})`}
               value={energy}
@@ -100,15 +105,15 @@ export const Controls: React.FC<ControlsProps> = ({ onGenerate, isLoading }) => 
               max={100}
             />
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Neurochemical Intent</label>
+              <label className="block text-sm font-medium text-[#f8f8f2] mb-3 font-display tracking-wide">Neurochemical Intent</label>
               <SegmentedControl options={neuroIntentOptions} value={neuroIntent} onChange={(val) => setNeuroIntent(val as NeuroIntent)} />
             </div>
           </div>
           
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-cyan-300">Aesthetics</h3>
+          <div className="bg-[#44475a]/30 p-5 rounded-xl border border-[#6272a4]/20 space-y-6">
+            <h3 className="text-xl font-semibold text-[#50fa7b] font-display tracking-wide">Aesthetics</h3>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Color Theme</label>
+              <label className="block text-sm font-medium text-[#f8f8f2] mb-3 font-display tracking-wide">Color Theme</label>
               <SegmentedControl options={colorThemeOptions.map(c => ({value: c, label: c}))} value={colorTheme} onChange={(val) => setColorTheme(val as ColorTheme)} />
             </div>
             <Toggle
@@ -119,32 +124,39 @@ export const Controls: React.FC<ControlsProps> = ({ onGenerate, isLoading }) => 
             />
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-cyan-300">Mode</h3>
+          <div className="bg-[#44475a]/30 p-5 rounded-xl border border-[#6272a4]/20 space-y-4">
+            <h3 className="text-xl font-semibold text-[#50fa7b] font-display tracking-wide">Mode</h3>
             <SegmentedControl options={appModeOptions} value={appMode} onChange={(val) => setAppMode(val as AppMode)} />
           </div>
-        </>
-      ) : (
-        <div className="space-y-4">
-           <h3 className="text-xl font-semibold text-cyan-300">Freestyle Prompt</h3>
-           <p className="text-sm text-gray-400">Describe the soundscape you want to create in your own words. The AI will expand on your idea to generate a detailed prompt and visual.</p>
+        </div>
+      ) : inputMode === 'Freestyle' ? (
+        <div className="bg-[#44475a]/30 p-5 rounded-xl border border-[#6272a4]/20 space-y-4">
+           <h3 className="text-xl font-semibold text-[#50fa7b] font-display tracking-wide">Freestyle Prompt</h3>
+           <p className="text-sm text-[#f8f8f2]/70 font-light">Describe the soundscape you want to create in your own words. The AI will expand on your idea to generate a detailed prompt and visual.</p>
            <textarea
             value={freestylePrompt}
             onChange={(e) => setFreestylePrompt(e.target.value)}
             placeholder="e.g., A calming ambient track for deep focus, with sounds of gentle rain and a distant, soft piano melody..."
-            className="w-full h-32 p-3 bg-gray-700/50 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-colors"
+            className="w-full h-32 p-4 bg-[#282a36] border border-[#6272a4] rounded-xl text-[#f8f8f2] placeholder-[#6272a4] focus:outline-none focus:ring-2 focus:ring-[#bd93f9] focus:border-[#bd93f9] transition-colors resize-none"
             aria-label="Freestyle soundscape prompt"
            />
         </div>
+      ) : (
+        <ChatPrescription 
+          isLoading={isLoading} 
+          onGenerateFromChat={(chatHistory) => onGenerate({ mode: 'Chat', config: { chatHistory } })} 
+        />
       )}
 
-      <button
-        onClick={handleSubmit}
-        disabled={isLoading || (inputMode === 'Freestyle' && !freestylePrompt.trim())}
-        className="w-full flex justify-center items-center bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
-      >
-        {isLoading ? <Loader /> : 'Generate Soundscape'}
-      </button>
+      {inputMode !== 'Chat' && (
+        <button
+          onClick={handleSubmit}
+          disabled={isLoading || (inputMode === 'Freestyle' && !freestylePrompt.trim())}
+          className="w-full flex justify-center items-center bg-gradient-to-r from-[#bd93f9] to-[#50fa7b] hover:from-[#ff79c6] hover:to-[#8be9fd] text-[#282a36] font-bold py-4 px-6 rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 font-display tracking-wide text-lg"
+        >
+          {isLoading ? <Loader /> : 'Generate Soundscape'}
+        </button>
+      )}
     </div>
   );
 };

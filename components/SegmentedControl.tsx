@@ -9,16 +9,16 @@ interface SegmentedControlProps<T extends string> {
 
 export const SegmentedControl = <T extends string,>({ options, value, onChange }: SegmentedControlProps<T>): React.ReactNode => {
   return (
-    <div className="flex w-full bg-gray-700/50 rounded-lg p-1 space-x-1">
+    <div className="flex w-full bg-[#282a36] rounded-xl p-1.5 space-x-1 border border-[#6272a4]/30">
       {options.map((option) => (
         <button
           key={option.value}
           onClick={() => onChange(option.value)}
-          className={`w-full py-1.5 text-sm font-medium rounded-md transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-50
+          className={`w-full py-2 text-sm font-medium rounded-lg transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#bd93f9] focus:ring-opacity-50
             ${
               value === option.value
-                ? 'bg-cyan-500 text-white shadow'
-                : 'text-gray-300 hover:bg-gray-600/50'
+                ? 'bg-[#44475a] text-[#50fa7b] shadow-md border border-[#6272a4]/50'
+                : 'text-[#f8f8f2]/70 hover:bg-[#44475a]/50 hover:text-[#f8f8f2]'
             }
           `}
         >

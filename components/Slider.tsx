@@ -13,7 +13,7 @@ interface SliderProps {
 export const Slider: React.FC<SliderProps> = ({ label, value, onChange, min = 0, max = 100, step = 1 }) => {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-300 mb-2">{label}</label>
+      <label className="block text-sm font-medium text-[#f8f8f2] mb-3 font-display tracking-wide">{label}</label>
       <input
         type="range"
         min={min}
@@ -21,7 +21,7 @@ export const Slider: React.FC<SliderProps> = ({ label, value, onChange, min = 0,
         step={step}
         value={value}
         onChange={onChange}
-        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg accent-cyan-500"
+        className="w-full h-2.5 bg-[#282a36] rounded-full appearance-none cursor-pointer accent-[#bd93f9] border border-[#6272a4]/30"
       />
     </div>
   );

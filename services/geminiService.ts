@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse, Modality } from '@google/genai';
 import type { MusicConfig, GeneratedContent } from '../types';
 
 if (!process.env.API_KEY) {
@@ -13,7 +13,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const callGeminiForJson = async (prompt: string): Promise<GeneratedContent | null> => {
     try {
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -21,7 +21,7 @@ const callGeminiForJson = async (prompt: string): Promise<GeneratedContent | nul
             },
         });
         
-        const jsonStr = response.text.trim();
+        const jsonStr = response.text?.trim() || '';
         const parsedData = JSON.parse(jsonStr);
 
         if (parsedData && typeof parsedData.musicDescription === 'string' && typeof parsedData.imagePrompt === 'string') {
@@ -100,7 +100,65 @@ For "imagePrompt", create a concise, abstract, and evocative prompt for an AI im
 }
 
 
+const buildChatPrompt = (chatHistory: string): string => {
+    return `
+You are an expert AI sound designer. A user has had a conversation with a neuro-acoustic AI to determine their optimal soundscape.
+Here is the chat history:
+${chatHistory}
+
+Based on this conversation, generate a highly detailed, professional prompt suitable for a generative audio AI model (like Lyria) to create a 30-second audio loop. You must also create a corresponding image prompt. The output must be a single, valid JSON object with the keys "musicDescription" and "imagePrompt". Do not include any other text or markdown formatting.
+
+For "musicDescription", be vivid and technical. Specify BPM range, key, sonic textures, rhythmic structure, melodic elements, and the overall mood and neurochemical intent discussed in the chat.
+
+For "imagePrompt", create a concise, abstract, and evocative prompt for an AI image generator that captures the feeling, color, and texture of the soundscape.
+`;
+}
+
+
 // --- Public Service Functions ---
+
+export const startPrescriptionChat = () => {
+    return ai.chats.create({
+        model: "gemini-3.1-pro-preview",
+        config: {
+            systemInstruction: "You are Glia, an expert neuro-acoustic AI. The user will describe their current mental state or desired state (e.g., focus, rest, lucid). Reason about the optimal soundscape (BPM, frequencies, instruments, neurochemical intent). Keep responses concise, empathetic, and analytical. When you have a clear prescription, explicitly state it at the end of your message.",
+        }
+    });
+};
+
+export const generateChatDescriptionAndImagePrompt = async (chatHistory: string): Promise<GeneratedContent | null> => {
+    const prompt = buildChatPrompt(chatHistory);
+    return callGeminiForJson(prompt);
+};
+
+export const generateAudioSpeech = async (text: string): Promise<string> => {
+    try {
+        // Truncate text if it's too long to prevent 500 errors from TTS model
+        const safeText = text.length > 1000 ? text.substring(0, 1000) + "..." : text;
+        
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text: safeText }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Zephyr' },
+                    },
+                },
+            },
+        });
+
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (base64Audio) {
+            return base64Audio;
+        }
+        throw new Error("No audio was generated.");
+    } catch (e) {
+        console.error("Error generating speech:", e);
+        throw e;
+    }
+};
 
 export const generateMusicDescriptionAndImagePrompt = async (config: MusicConfig): Promise<GeneratedContent | null> => {
     const prompt = buildGuidedPrompt(config);
@@ -115,15 +173,27 @@ export const generateFreestyleDescriptionAndImagePrompt = async (userPrompt: str
 
 export const generateImage = async (prompt: string): Promise<string> => {
     try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: `${prompt}, abstract digital art, high resolution, atmospheric, cinematic lighting`,
-            config: { numberOfImages: 1, outputMimeType: 'image/jpeg' },
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    {
+                        text: `${prompt}, abstract digital art, high resolution, atmospheric, cinematic lighting, dracula theme colors, purple and green accents`,
+                    },
+                ],
+            },
+            config: {
+                imageConfig: {
+                    aspectRatio: "1:1",
+                },
+            },
         });
 
-        if (response.generatedImages && response.generatedImages.length > 0) {
-            const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-            return `data:image/jpeg;base64,${base64ImageBytes}`;
+        for (const part of response.candidates?.[0]?.content?.parts || []) {
+            if (part.inlineData) {
+                const base64ImageBytes: string = part.inlineData.data;
+                return `data:image/jpeg;base64,${base64ImageBytes}`;
+            }
         }
         throw new Error("No image was generated.");
     } catch (e) {
