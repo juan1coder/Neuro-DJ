@@ -48,6 +48,8 @@ export type GenerationParams =
 export interface GeneratedContent {
     musicDescription: string;
     imagePrompt: string;
+    sessionName: string;
+    shortDescription: string;
 }
 
 export interface SavedSession {

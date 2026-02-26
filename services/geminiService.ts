@@ -25,7 +25,12 @@ const callGeminiForJson = async (prompt: string): Promise<GeneratedContent | nul
         const parsedData = JSON.parse(jsonStr);
 
         if (parsedData && typeof parsedData.musicDescription === 'string' && typeof parsedData.imagePrompt === 'string') {
-             return parsedData as GeneratedContent;
+             return {
+                 musicDescription: parsedData.musicDescription,
+                 imagePrompt: parsedData.imagePrompt,
+                 sessionName: parsedData.sessionName || "Generated Session",
+                 shortDescription: parsedData.shortDescription || "A custom neuro-acoustic soundscape."
+             } as GeneratedContent;
         } else {
             console.error("Parsed JSON does not match expected structure:", parsedData);
             throw new Error("Received an invalid data structure from the AI.");
@@ -65,7 +70,7 @@ function getModeInstructions(config: MusicConfig): string {
 
 const buildGuidedPrompt = (config: MusicConfig): string => {
     return `
-You are an expert neuro-acoustic music composer AI. Your task is to generate a detailed description for a 30-60 second seamless audio loop and a corresponding image prompt based on the user's specifications. The output must be a single, valid JSON object with the keys "musicDescription" and "imagePrompt". Do not include any other text or markdown formatting around the JSON object.
+You are an expert neuro-acoustic music composer AI. Your task is to generate a detailed description for a 30-60 second seamless audio loop and a corresponding image prompt based on the user's specifications. The output must be a single, valid JSON object with the keys "musicDescription", "imagePrompt", "sessionName", and "shortDescription". Do not include any other text or markdown formatting around the JSON object.
 
 User Specifications:
 - Genre: ${config.genre}
@@ -80,6 +85,10 @@ Based on these settings, generate the JSON output.
 For "musicDescription", be vivid and technical. Describe the BPM range, key sonic elements (e.g., warm sub-bass, metallic tones, lucid arpeggios, soft pads), rhythmic patterns, and any ASMR or bioacoustic pulses. Describe the overall mood and intended psychological effect, ensuring it's a seamless loop.
 
 For "imagePrompt", create a concise, abstract, and evocative prompt for an AI image generator. It should capture the feeling, color, and texture of the soundscape. For example: "luminous golden threads woven through a deep indigo nebula, abstract, digital art, serene but focused".
+
+For "sessionName", provide a short, creative, and catchy name for this soundscape (e.g., "Deep Focus Alpha", "Lucid Dreamscape").
+
+For "shortDescription", provide a 1-2 sentence creative description of the session's vibe, frequencies, and intended effect.
 `;
 };
 
@@ -87,7 +96,7 @@ For "imagePrompt", create a concise, abstract, and evocative prompt for an AI im
 
 const buildFreestylePrompt = (userPrompt: string): string => {
     return `
-You are an expert AI sound designer. A user has provided a basic idea for a soundscape. Your task is to expand their idea into a highly detailed, professional prompt suitable for a generative audio AI model. You must also create a corresponding image prompt. The output must be a single, valid JSON object with the keys "musicDescription" and "imagePrompt". Do not include any other text or markdown formatting.
+You are an expert AI sound designer. A user has provided a basic idea for a soundscape. Your task is to expand their idea into a highly detailed, professional prompt suitable for a generative audio AI model. You must also create a corresponding image prompt. The output must be a single, valid JSON object with the keys "musicDescription", "imagePrompt", "sessionName", and "shortDescription". Do not include any other text or markdown formatting.
 
 User's Idea: "${userPrompt}"
 
@@ -96,6 +105,10 @@ Based on the user's idea, generate the JSON output.
 For "musicDescription" (the detailed audio prompt), be vivid and technical. Infer and specify details like BPM range, key, sonic textures (e.g., "warm analog synth pads," "crisp, granular rain samples"), rhythmic structure ("a gentle 4/4 kick with soft, off-beat hi-hats"), melodic elements ("a sparse, melancholic piano melody with heavy reverb"), and the overall mood and progression. Make it a complete, actionable prompt for an audio generator.
 
 For "imagePrompt", create a concise, abstract, and evocative prompt for an AI image generator that captures the feeling, color, and texture of the soundscape you've just described. For example: "bioluminescent particles drifting in a tranquil, midnight blue cavern, digital art, ethereal glow".
+
+For "sessionName", provide a short, creative name for this soundscape.
+
+For "shortDescription", provide a 1-2 sentence creative description of the session's vibe, frequencies, and intended effect.
 `;
 }
 
@@ -106,11 +119,15 @@ You are an expert AI sound designer. A user has had a conversation with a neuro-
 Here is the chat history:
 ${chatHistory}
 
-Based on this conversation, generate a highly detailed, professional prompt suitable for a generative audio AI model (like Lyria) to create a 30-second audio loop. You must also create a corresponding image prompt. The output must be a single, valid JSON object with the keys "musicDescription" and "imagePrompt". Do not include any other text or markdown formatting.
+Based on this conversation, generate a highly detailed, professional prompt suitable for a generative audio AI model (like Lyria) to create a 30-second audio loop. You must also create a corresponding image prompt. The output must be a single, valid JSON object with the keys "musicDescription", "imagePrompt", "sessionName", and "shortDescription". Do not include any other text or markdown formatting.
 
 For "musicDescription", be vivid and technical. Specify BPM range, key, sonic textures, rhythmic structure, melodic elements, and the overall mood and neurochemical intent discussed in the chat.
 
 For "imagePrompt", create a concise, abstract, and evocative prompt for an AI image generator that captures the feeling, color, and texture of the soundscape.
+
+For "sessionName", provide a short, creative name for this soundscape based on the chat.
+
+For "shortDescription", provide a 1-2 sentence creative description of the session's vibe, frequencies, and intended effect based on the chat.
 `;
 }
 
@@ -171,14 +188,15 @@ export const generateFreestyleDescriptionAndImagePrompt = async (userPrompt: str
 };
 
 
-export const generateImage = async (prompt: string): Promise<string> => {
+export const generateImage = async (prompt: string, colorScheme?: string): Promise<string> => {
+    const colors = colorScheme || "dracula theme colors, purple and green accents";
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: {
                 parts: [
                     {
-                        text: `${prompt}, abstract digital art, high resolution, atmospheric, cinematic lighting, dracula theme colors, purple and green accents`,
+                        text: `${prompt}, abstract digital art, high resolution, atmospheric, cinematic lighting, ${colors}`,
                     },
                 ],
             },
@@ -198,6 +216,42 @@ export const generateImage = async (prompt: string): Promise<string> => {
         throw new Error("No image was generated.");
     } catch (e) {
         console.error("Error generating image:", e);
+        throw e;
+    }
+};
+
+export const editImage = async (base64ImageData: string, prompt: string): Promise<string> => {
+    try {
+        const base64Data = base64ImageData.split(',')[1];
+        const mimeTypeMatch = base64ImageData.match(/^data:(image\/[a-zA-Z]*);base64,/);
+        const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    {
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: mimeType,
+                        },
+                    },
+                    {
+                        text: prompt,
+                    },
+                ],
+            },
+        });
+
+        for (const part of response.candidates?.[0]?.content?.parts || []) {
+            if (part.inlineData) {
+                const base64ImageBytes: string = part.inlineData.data;
+                return `data:image/jpeg;base64,${base64ImageBytes}`;
+            }
+        }
+        throw new Error("No image was generated.");
+    } catch (e) {
+        console.error("Error editing image:", e);
         throw e;
     }
 };

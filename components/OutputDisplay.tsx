@@ -1,15 +1,22 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader } from './Loader';
-import { Download, Copy, Check, Image as ImageIcon, Play, Square, Activity, Heart, Clock, Mic, StopCircle } from 'lucide-react';
+import { Download, Copy, Check, Image as ImageIcon, Play, Square, Activity, Heart, Clock, Mic, StopCircle, Wand2 } from 'lucide-react';
 import type { SavedSession } from '../types';
 
 interface OutputDisplayProps {
   isLoading: boolean;
+  isGeneratingImage?: boolean;
+  isEditingImage?: boolean;
   description: string;
   imageUrl: string;
+  sessionName?: string;
+  shortDescription?: string;
+  rawReasoning?: string;
   error: string;
   onSaveSession: (session: Omit<SavedSession, 'id' | 'date'>) => void;
+  onEditImage?: (prompt: string) => void;
+  onGenerateImage?: () => void;
 }
 
 const Placeholder = () => (
@@ -21,7 +28,7 @@ const Placeholder = () => (
     </div>
 );
 
-export const OutputDisplay: React.FC<OutputDisplayProps> = ({ isLoading, description, imageUrl, error, onSaveSession }) => {
+export const OutputDisplay: React.FC<OutputDisplayProps> = ({ isLoading, isGeneratingImage, isEditingImage, description, imageUrl, sessionName, shortDescription, rawReasoning, error, onSaveSession, onEditImage, onGenerateImage }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -30,6 +37,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({ isLoading, descrip
   const [timerMinutes, setTimerMinutes] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [imageEditPrompt, setImageEditPrompt] = useState('');
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[]>([]);
@@ -96,6 +104,32 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({ isLoading, descrip
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDownloadDescription = () => {
+    if (!description) return;
+    const blob = new Blob([description], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'glia-prescription.txt';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadReasoning = () => {
+    if (!rawReasoning) return;
+    const blob = new Blob([rawReasoning], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'glia-raw-reasoning.txt';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const stopBinauralBeats = () => {
@@ -256,11 +290,12 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({ isLoading, descrip
     let beatFreq = beatMatch ? parseFloat(beatMatch[1]) : 7;
     if (beatFreq === carrierFreq) beatFreq = 7;
 
-    const namePrompt = `Session ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+    const namePrompt = sessionName || `Session ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+    const descPrompt = shortDescription ? `${shortDescription}\n\n${description}` : description;
     
     onSaveSession({
       name: namePrompt,
-      description,
+      description: descPrompt,
       imageUrl,
       carrierFreq,
       beatFreq
@@ -277,12 +312,30 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({ isLoading, descrip
   return (
     <div className="bg-[#282a36]/80 backdrop-blur-md border border-[#bd93f9]/20 rounded-2xl p-6 shadow-2xl shadow-[#bd93f9]/10 min-h-[400px] flex flex-col space-y-8">
        <div className="w-full aspect-square relative overflow-hidden rounded-xl bg-[#44475a]/20">
-         {isLoading && (
+         {(isLoading || isEditingImage || isGeneratingImage) && (
             <div className="absolute inset-0 bg-[#282a36]/80 flex items-center justify-center z-20 backdrop-blur-sm">
                <Loader large />
+               {isEditingImage && <p className="absolute mt-20 text-[#bd93f9] font-medium">Applying edits...</p>}
+               {isGeneratingImage && <p className="absolute mt-20 text-[#bd93f9] font-medium">Dreaming...</p>}
             </div>
          )}
-         {!isLoading && !imageUrl && <Placeholder />}
+         {!isLoading && !imageUrl && !isGeneratingImage && (
+            <div className="w-full h-full flex items-center justify-center bg-[#44475a]/40 rounded-xl border border-dashed border-[#bd93f9]/30">
+                <div className="text-center text-[#bd93f9]/60 flex flex-col items-center p-6">
+                    <ImageIcon className="h-16 w-16 mb-4 opacity-50" />
+                    <p className="text-lg font-light mb-6">Soundscape generated successfully.</p>
+                    {onGenerateImage && description && (
+                        <button
+                            onClick={onGenerateImage}
+                            className="flex items-center gap-2 px-6 py-3 bg-[#bd93f9] hover:bg-[#ff79c6] text-[#282a36] font-semibold rounded-xl transition-all"
+                        >
+                            <ImageIcon className="w-5 h-5" />
+                            Generate Dreamscape Image
+                        </button>
+                    )}
+                </div>
+            </div>
+         )}
          {imageUrl && (
             <>
               <img src={imageUrl} alt="Generated soundscape visual" className="w-full h-full object-cover transition-opacity duration-700 ease-in-out opacity-100" />
@@ -296,6 +349,37 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({ isLoading, descrip
             </>
          )}
        </div>
+
+       {imageUrl && onEditImage && (
+         <div className="flex items-center gap-2 bg-[#44475a]/30 p-2 rounded-xl border border-[#6272a4]/30">
+           <input
+             type="text"
+             value={imageEditPrompt}
+             onChange={(e) => setImageEditPrompt(e.target.value)}
+             placeholder="Edit image (e.g. 'Add a retro filter')"
+             className="flex-grow bg-transparent text-[#f8f8f2] text-sm px-3 py-2 focus:outline-none placeholder-[#f8f8f2]/40"
+             onKeyDown={(e) => {
+               if (e.key === 'Enter' && imageEditPrompt.trim() && !isEditingImage) {
+                 onEditImage(imageEditPrompt.trim());
+                 setImageEditPrompt('');
+               }
+             }}
+           />
+           <button
+             onClick={() => {
+               if (imageEditPrompt.trim() && !isEditingImage) {
+                 onEditImage(imageEditPrompt.trim());
+                 setImageEditPrompt('');
+               }
+             }}
+             disabled={!imageEditPrompt.trim() || isEditingImage}
+             className="bg-[#bd93f9] hover:bg-[#ff79c6] text-[#282a36] p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+             title="Apply Edit"
+           >
+             <Wand2 className="w-4 h-4" />
+           </button>
+         </div>
+       )}
 
       <div className="flex-grow bg-[#44475a]/20 p-6 rounded-xl border border-[#6272a4]/20">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -317,10 +401,29 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({ isLoading, descrip
                         onClick={handleCopy}
                         disabled={isCopied}
                         className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#44475a] hover:bg-[#6272a4] rounded-lg transition-colors duration-200 text-[#f8f8f2] focus:outline-none focus:ring-2 focus:ring-[#bd93f9] disabled:opacity-70 disabled:cursor-default"
-                        title="Copy description"
+                        title="Copy prescription"
                     >
                         {isCopied ? <Check className="h-4 w-4 text-[#50fa7b]" /> : <Copy className="h-4 w-4" />}
                     </button>
+                    
+                    <button
+                        onClick={handleDownloadDescription}
+                        className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#44475a] hover:bg-[#6272a4] rounded-lg transition-colors duration-200 text-[#f8f8f2] focus:outline-none focus:ring-2 focus:ring-[#bd93f9]"
+                        title="Download prescription"
+                    >
+                        <Download className="h-4 w-4" />
+                    </button>
+                    
+                    {rawReasoning && (
+                      <button
+                          onClick={handleDownloadReasoning}
+                          className="flex items-center space-x-2 px-3 py-2 text-sm bg-[#44475a] hover:bg-[#6272a4] rounded-lg transition-colors duration-200 text-[#f8f8f2] focus:outline-none focus:ring-2 focus:ring-[#bd93f9]"
+                          title="Download AI Reasoning & Query"
+                      >
+                          <Download className="h-4 w-4" />
+                          <span className="hidden sm:inline">Reasoning</span>
+                      </button>
+                    )}
                   </>
               )}
             </div>
